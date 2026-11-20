@@ -1,0 +1,68 @@
+name: Crear APK Apex Life F1
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  compilar:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 1. Descargar repositorio
+        uses: actions/checkout@v4
+
+      - name: 2. Descomprimir y preparar archivos del juego
+        run: |
+          if [ -f "apex_life_f1.zip" ]; then
+            echo "Descomprimiendo apex_life_f1.zip..."
+            unzip -o apex_life_f1.zip -d .
+          fi
+
+          if [ -f "apex_life_f1.py" ]; then
+            cp apex_life_f1.py main.py
+          else
+            echo "Error: No se encontró apex_life_f1.py ni apex_life_f1.zip"
+            exit 1
+          fi
+
+      - name: 3. Instalar dependencias de Buildozer
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y git zip unzip openjdk-17-jdk python3-pip autoconf libtool pkg-config zlib1g-dev libncurses5-dev libncursesw5-dev libtinfo5 cmake libffi-dev libssl-dev
+          pip3 install --user --upgrade buildozer cython==0.29.33 virtualenv
+
+      - name: 4. Crear configuración buildozer.spec
+        run: |
+          cat << 'EOF' > buildozer.spec
+          [app]
+          title = Apex Life F1
+          package.name = apexlifef1
+          package.domain = org.apexlife
+          source.dir = .
+          source.include_exts = py,png,jpg,kv,atlas,json
+          version = 1.0
+          requirements = python3,kivy
+          orientation = landscape
+          fullscreen = 1
+          android.permissions = INTERNET
+          android.api = 33
+          android.minapi = 21
+          android.archs = arm64-v8a
+
+          [buildozer]
+          log_level = 2
+          warn_on_root = 1
+          EOF
+
+      - name: 5. Compilar APK
+        run: |
+          export PATH=$PATH:~/.local/bin
+          yes | buildozer android debug
+
+      - name: 6. Subir APK descargable
+        uses: actions/upload-artifact@v4
+        with:
+          name: apex-life-f1-apk
+          path: bin/*.apk
